@@ -430,4 +430,3 @@ ALTER SYSTEM SET shared_buffers = '1GB';
 | **Background Writer** | Сбрасывает грязные страницы на диск |
 
 ---
-
