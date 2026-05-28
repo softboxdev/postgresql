@@ -30,8 +30,15 @@ cd bookstore-app
 mkdir backend
 cd backend
 ```
+### 2.2.1 Установите Node.js проект
+```bash
+sudo apt update
+sudo apt install -y nodejs npm
+node --version
+npm --version
+```
 
-### 2.2. Инициализируйте Node.js проект
+### 2.2.2 Инициализируйте Node.js проект
 
 ```bash
 npm init -y
