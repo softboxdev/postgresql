@@ -1616,3 +1616,1021 @@ $$ LANGUAGE plpgsql;
 
 ---
 
+# PL/pgSQL — Полный разбор синтаксиса для новичка (с комментарием каждого слова)
+
+## Введение для абсолютного новичка
+
+**PL/pgSQL** — это язык, на котором вы пишете программы, которые работают **внутри** базы данных PostgreSQL.
+
+Представьте, что вы пишете рецепт:
+- **SQL** — это "возьми муку", "возьми яйца" (простые команды)
+- **PL/pgSQL** — это "смешай муку с яйцами, если тесто жидкое, добавь муки, повтори 3 раза" (алгоритм)
+
+---
+
+
+'192.168.1.1' = '192.168.1.1' -> true
+
+'192.168.1.1' <> '10.2.10.1' -> true
+
+'192.168.1.1' < '192.168.1.2' -> true
+
+'192.168.1.1' > '192.168.1.1' -> false
+
+'192.168.1.1' << '192.168.1.0/24' -> true
+
+'192.168.1.0/24' <<= '192.168.1.0/24' -> true
+
+'192.168.1.0/24' >> '192.168.1.10' -> true
+
+'192.168.1.0/24' >>= '192.168.1.0/24' -> true
+
+```
+CREATE DATABASE mydb
+    ENCODING 'UTF8'
+    LC_COLLATE 'ru_RU.UTF-8'
+    LC_CTYPE 'ru_RU.UTF-8'
+
+
+
+```
+
+
+```
+CREATE TYPE person AS (
+    first_name TEXT,
+    last_name TEXT,
+    age INTEGER
+
+    );
+
+
+
+
+```
+```
+CREATE FUNCTION get_address(customer_id INTEGER)
+RETURNS person
+LANGUAGE plpgsql
+AS $$
+DECLARE 
+    result person;
+BEGIN 
+    SELECT addr INO result
+    FROM customers
+    WHERE id = customer_id
+    RETURN result;
+END;
+$$;
+
+
+
+
+
+
+
+```
+
+```
+BEGIN;
+
+DECLARE cursor_name CURSOR FOR
+    SELECT * FROM users WHERE age > 18;
+
+OPEN cursor_name;
+
+LOOP
+   FETCH 100 FROM cursor_name;
+   EXIT WHEN NOT FOUND;
+END LOOP;
+CLOSE cursor_name;
+
+COMMIT;
+```
+
+## Часть 1. Самая простая функция (разбор каждого символа)
+
+```sql
+CREATE OR REPLACE FUNCTION hello_world()
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN 'Привет, мир!';
+END;
+$$;
+```
+
+### Разберём каждое слово:
+
+| Слово | Что означает | Комментарий |
+|-------|--------------|-------------|
+| `CREATE` | создать | Команда на создание чего-либо |
+| `OR` | или | Ключевое слово |
+| `REPLACE` | заменить | Вместе `CREATE OR REPLACE` = "создать или заменить, если уже есть" |
+| `FUNCTION` | функция | То, что мы создаём (программа, которая возвращает значение) |
+| `hello_world` | привет_мир | Имя нашей функции (вы придумываете сами) |
+| `()` | круглые скобки | Здесь будут параметры (сейчас пусто) |
+| `RETURNS` | возвращает | Какое значение вернёт функция |
+| `TEXT` | текст | Тип возвращаемого значения (строка) |
+| `LANGUAGE` | язык | На каком языке написана функция |
+| `plpgsql` | пэл-пи-эс-кю-эль | Название языка (PostgreSQL Procedural Language) |
+| `AS` | как | Начинается тело функции |
+| `$$` | два доллара | Символы-ограничители (внутри них код) |
+| `BEGIN` | начало | Начало блока кода |
+| `RETURN` | вернуть | Команда вернуть значение |
+| `'Привет, мир!'` | строка | Значение, которое возвращаем |
+| `;` | точка с запятой | Конец команды |
+| `END` | конец | Конец блока кода |
+| `$$` | два доллара | Закрытие ограничителя |
+| `;` | точка с запятой | Конец всей команды CREATE |
+
+### Как вызвать функцию:
+
+```sql
+SELECT hello_world();
+```
+
+**Разбор:**
+- `SELECT` — выбрать
+- `hello_world()` — вызвать нашу функцию
+- `;` — конец команды
+
+**Результат:** `'Привет, мир!'`
+
+---
+
+## Часть 2. Функция с параметрами
+
+```sql
+CREATE OR REPLACE FUNCTION add_numbers(a INTEGER, b INTEGER)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN a + b;
+END;
+$$;
+```
+
+### Разбор параметров:
+
+| Слово | Что означает |
+|-------|--------------|
+| `add_numbers` | имя функции (сложить_числа) |
+| `(` | начало списка параметров |
+| `a` | имя первого параметра |
+| `INTEGER` | тип первого параметра (целое число) |
+| `,` | разделитель параметров |
+| `b` | имя второго параметра |
+| `INTEGER` | тип второго параметра |
+| `)` | конец списка параметров |
+
+### Разбор тела функции:
+
+| Код | Что происходит |
+|-----|----------------|
+| `RETURN` | вернуть результат |
+| `a + b` | вычислить сумму a и b |
+| `;` | конец команды |
+
+### Как вызвать:
+
+```sql
+SELECT add_numbers(5, 3);  -- Результат: 8
+```
+
+---
+
+## Часть 3. Переменные (DECLARE)
+
+```sql
+CREATE OR REPLACE FUNCTION calculate_discount(price DECIMAL, discount_percent DECIMAL)
+RETURNS DECIMAL
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    discount_amount DECIMAL;
+    final_price DECIMAL;
+BEGIN
+    discount_amount := price * (discount_percent / 100);
+    final_price := price - discount_amount;
+    
+    RETURN final_price;
+END;
+$$;
+```
+
+### Разбор DECLARE (объявление переменных):
+
+| Слово | Что означает |
+|-------|--------------|
+| `DECLARE` | объявить (начало секции переменных) |
+| `discount_amount` | имя переменной (сумма_скидки) |
+| `DECIMAL` | тип переменной (дробное число) |
+| `;` | конец объявления |
+| `final_price` | имя переменной (итоговая_цена) |
+| `DECIMAL` | тип переменной |
+| `;` | конец объявления |
+
+### Разбор присваивания:
+
+| Код | Что означает |
+|-----|--------------|
+| `discount_amount` | переменная, которой присваиваем |
+| `:=` | оператор присваивания (положи значение) |
+| `price` | параметр (цена) |
+| `*` | умножить |
+| `(` | открыть скобку |
+| `discount_percent` | параметр (процент скидки) |
+| `/` | разделить |
+| `100` | число 100 |
+| `)` | закрыть скобку |
+| `;` | конец команды |
+
+**Как это читать:** 
+"Переменной discount_amount присвоить значение price умножить на (discount_percent разделить на 100)"
+
+### Как вызвать:
+
+```sql
+SELECT calculate_discount(1000, 20);  -- Результат: 800
+```
+
+---
+
+## Часть 4. Условия (IF/THEN/ELSE)
+
+```sql
+CREATE OR REPLACE FUNCTION check_age(age INTEGER)
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result TEXT;
+BEGIN
+    IF age < 18 THEN
+        result := 'Ребёнок';
+    ELSIF age < 65 THEN
+        result := 'Взрослый';
+    ELSE
+        result := 'Пенсионер';
+    END IF;
+    
+    RETURN result;
+END;
+$$;
+```
+
+### Разбор условия (построчно):
+
+**Строка 1:** `IF age < 18 THEN`
+| Слово | Что означает |
+|-------|--------------|
+| `IF` | если |
+| `age` | переменная (возраст) |
+| `<` | меньше |
+| `18` | число 18 |
+| `THEN` | тогда (начало блока, который выполнится, если условие верно) |
+
+**Строка 2:** `result := 'Ребёнок';`
+- Присвоить переменной result строку 'Ребёнок'
+
+**Строка 3:** `ELSIF age < 65 THEN`
+| Слово | Что означает |
+|-------|--------------|
+| `ELSIF` | иначе если (сокращение от ELSE IF) |
+| `age` | возраст |
+| `<` | меньше |
+| `65` | число 65 |
+| `THEN` | тогда |
+
+**Строка 4:** `result := 'Взрослый';`
+- Присвоить result строку 'Взрослый'
+
+**Строка 5:** `ELSE`
+| Слово | Что означает |
+|-------|--------------|
+| `ELSE` | иначе (во всех остальных случаях) |
+
+**Строка 6:** `result := 'Пенсионер';`
+- Присвоить result строку 'Пенсионер'
+
+**Строка 7:** `END IF;`
+| Слово | Что означает |
+|-------|--------------|
+| `END` | конец |
+| `IF` | блока IF |
+| `;` | конец команды |
+
+### Как вызвать:
+
+```sql
+SELECT check_age(15);  -- 'Ребёнок'
+SELECT check_age(30);  -- 'Взрослый'
+SELECT check_age(70);  -- 'Пенсионер'
+```
+
+---
+
+## Часть 5. SELECT INTO (получение данных из таблицы)
+
+Предположим, у нас есть таблица:
+
+```sql
+CREATE TABLE products (
+    id INTEGER,
+    name TEXT,
+    price DECIMAL
+);
+
+INSERT INTO products VALUES (1, 'Ноутбук', 50000);
+```
+
+**Функция, которая читает из таблицы:**
+
+```sql
+CREATE OR REPLACE FUNCTION get_product_name(product_id INTEGER)
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    product_name TEXT;
+BEGIN
+    SELECT name INTO product_name
+    FROM products
+    WHERE id = product_id;
+    
+    RETURN product_name;
+END;
+$$;
+```
+
+### Разбор SELECT INTO:
+
+| Слово | Что означает |
+|-------|--------------|
+| `SELECT` | выбрать |
+| `name` | колонка name (название товара) |
+| `INTO` | в переменную |
+| `product_name` | имя переменной (куда сохранить) |
+| `FROM` | из |
+| `products` | таблица products |
+| `WHERE` | где |
+| `id` | колонка id |
+| `=` | равно |
+| `product_id` | параметр функции |
+
+**Как это читать:**
+"Выбрать колонку name из таблицы products, где колонка id равна параметру product_id, и сохранить результат в переменную product_name"
+
+### FOUND (проверка, найдена ли строка):
+
+```sql
+CREATE OR REPLACE FUNCTION get_product_name_safe(product_id INTEGER)
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    product_name TEXT;
+BEGIN
+    SELECT name INTO product_name
+    FROM products
+    WHERE id = product_id;
+    
+    IF NOT FOUND THEN
+        RETURN 'Товар не найден';
+    END IF;
+    
+    RETURN product_name;
+END;
+$$;
+```
+
+**Что такое `FOUND`:** 
+- Специальная переменная
+- `TRUE` (истина), если последний SELECT нашёл строку
+- `FALSE` (ложь), если не нашёл
+
+**Что такое `NOT FOUND`:**
+- Проверка "НЕ найдено" (если строка НЕ существует)
+
+---
+
+## Часть 6. Циклы (LOOP)
+
+### 6.1. Простой LOOP (бесконечный с выходом)
+
+```sql
+CREATE OR REPLACE FUNCTION count_to_ten()
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    counter INTEGER := 1;
+    result TEXT := '';
+BEGIN
+    LOOP
+        result := result || counter || ' ';
+        counter := counter + 1;
+        
+        EXIT WHEN counter > 10;
+    END LOOP;
+    
+    RETURN result;
+END;
+$$;
+```
+
+**Разбор цикла:**
+
+| Строка | Код | Что означает |
+|--------|-----|--------------|
+| 1 | `LOOP` | начало цикла |
+| 2 | `result := result \|\| counter \|\| ' ';` | добавить счётчик к результату |
+| 3 | `counter := counter + 1;` | увеличить счётчик на 1 |
+| 4 | `EXIT WHEN counter > 10;` | выход из цикла, если счётчик больше 10 |
+| 5 | `END LOOP;` | конец цикла |
+
+**Что значит `||`:** оператор склеивания строк (конкатенации)
+
+### 6.2. FOR LOOP (счётчик от и до)
+
+```sql
+CREATE OR REPLACE FUNCTION sum_numbers(n INTEGER)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    total INTEGER := 0;
+BEGIN
+    FOR i IN 1..n LOOP
+        total := total + i;
+    END LOOP;
+    
+    RETURN total;
+END;
+$$;
+```
+
+**Разбор FOR LOOP:**
+
+| Слово | Что означает |
+|-------|--------------|
+| `FOR` | для |
+| `i` | переменная-счётчик |
+| `IN` | в диапазоне |
+| `1` | от 1 |
+| `..` | до (две точки) |
+| `n` | до n |
+| `LOOP` | выполнять цикл |
+| `total := total + i;` | тело цикла |
+| `END LOOP;` | конец цикла |
+
+**Как это читать:**
+"Для i от 1 до n выполнять: total = total + i"
+
+**Результат:** `sum_numbers(10)` = 55 (сумма чисел от 1 до 10)
+
+### 6.3. FOR LOOP (обратный порядок)
+
+```sql
+FOR i IN REVERSE 10..1 LOOP
+    -- i будет: 10, 9, 8, ..., 1
+END LOOP;
+```
+
+### 6.4. WHILE LOOP
+
+```sql
+CREATE OR REPLACE FUNCTION power(base INTEGER, exponent INTEGER)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result INTEGER := 1;
+    counter INTEGER := 0;
+BEGIN
+    WHILE counter < exponent LOOP
+        result := result * base;
+        counter := counter + 1;
+    END LOOP;
+    
+    RETURN result;
+END;
+$$;
+```
+
+**Разбор WHILE:**
+
+| Слово | Что означает |
+|-------|--------------|
+| `WHILE` | пока |
+| `counter < exponent` | условие (пока счётчик меньше степени) |
+| `LOOP` | выполнять цикл |
+| (тело цикла) | result = result * base; counter = counter + 1 |
+| `END LOOP;` | конец цикла |
+
+**Как это читать:**
+"Пока counter меньше exponent, выполнять: умножить result на base, увеличить counter на 1"
+
+**Результат:** `power(2, 3)` = 8 (2³)
+
+---
+
+## Часть 7. CASE (множественный выбор)
+
+```sql
+CREATE OR REPLACE FUNCTION get_day_name(day_number INTEGER)
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    day_name TEXT;
+BEGIN
+    CASE day_number
+        WHEN 1 THEN day_name := 'Понедельник';
+        WHEN 2 THEN day_name := 'Вторник';
+        WHEN 3 THEN day_name := 'Среда';
+        WHEN 4 THEN day_name := 'Четверг';
+        WHEN 5 THEN day_name := 'Пятница';
+        WHEN 6 THEN day_name := 'Суббота';
+        WHEN 7 THEN day_name := 'Воскресенье';
+        ELSE day_name := 'Неверный номер дня';
+    END CASE;
+    
+    RETURN day_name;
+END;
+$$;
+```
+
+**Разбор CASE:**
+
+| Слово | Что означает |
+|-------|--------------|
+| `CASE` | выбор (начало) |
+| `day_number` | переменная, которую проверяем |
+| `WHEN 1 THEN` | если значение равно 1, то |
+| `day_name := 'Понедельник';` | присвоить Понедельник |
+| `WHEN 2 THEN` | если значение равно 2, то |
+| ... | ... |
+| `ELSE` | иначе (если ни одно условие не подошло) |
+| `END CASE;` | конец выбора |
+
+**Как это читать:**
+"Проверить значение day_number: если 1 → Понедельник, если 2 → Вторник, ..., иначе → Неверный номер"
+
+---
+
+## Часть 8. RETURN NEXT и RETURN QUERY (возврат нескольких строк)
+
+```sql
+CREATE OR REPLACE FUNCTION get_numbers(limit_count INTEGER)
+RETURNS SETOF INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    i INTEGER;
+BEGIN
+    FOR i IN 1..limit_count LOOP
+        RETURN NEXT i;
+    END LOOP;
+    
+    RETURN;
+END;
+$$;
+```
+
+**Разбор:**
+
+| Слово | Что означает |
+|-------|--------------|
+| `RETURNS SETOF INTEGER` | возвращает МНОЖЕСТВО целых чисел (не одно число) |
+| `RETURN NEXT i` | вернуть ОДНО значение и продолжить (не выходить из функции) |
+| `RETURN` | завершить функцию (без значения) |
+
+**Как это работает:** Функция возвращает строки по одной, как таблицу.
+
+**Вызов:**
+```sql
+SELECT * FROM get_numbers(5);
+-- Результат:
+-- 1
+-- 2
+-- 3
+-- 4
+-- 5
+```
+
+### RETURN QUERY (возврат результатов запроса)
+
+```sql
+CREATE OR REPLACE FUNCTION get_expensive_books(min_price DECIMAL)
+RETURNS SETOF products
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM products WHERE price > min_price;
+    
+    RETURN;
+END;
+$$;
+```
+
+**Разбор:**
+| Слово | Что означает |
+|-------|--------------|
+| `RETURN QUERY` | вернуть результат запроса |
+| `SELECT * FROM products` | запрос |
+| `WHERE price > min_price` | условие |
+
+---
+
+## Часть 9. Обработка ошибок (EXCEPTION)
+
+```sql
+CREATE OR REPLACE FUNCTION divide_numbers(a DECIMAL, b DECIMAL)
+RETURNS DECIMAL
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN a / b;
+EXCEPTION
+    WHEN division_by_zero THEN
+        RETURN NULL;
+END;
+$$;
+```
+
+**Разбор:**
+
+| Слово | Что означает |
+|-------|--------------|
+| `BEGIN` | начало блока (здесь выполняется нормальный код) |
+| `RETURN a / b;` | попытаться разделить |
+| `EXCEPTION` | исключение (блок для обработки ошибок) |
+| `WHEN division_by_zero THEN` | если произошла ошибка "деление на ноль" |
+| `RETURN NULL;` | вернуть NULL вместо ошибки |
+| `END;` | конец блока |
+
+**Что такое `division_by_zero`:** это название ошибки (условие)
+
+**Другие условия ошибок:**
+- `unique_violation` — нарушение уникальности
+- `foreign_key_violation` — нарушение внешнего ключа
+- `check_violation` — нарушение CHECK
+- `OTHERS` — все остальные ошибки
+
+---
+
+## Часть 10. RAISE (вывод сообщений)
+
+```sql
+CREATE OR REPLACE FUNCTION debug_demo(value INTEGER)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE NOTICE 'Начало функции. Значение = %', value;
+    
+    IF value < 0 THEN
+        RAISE EXCEPTION 'Ошибка: значение не может быть отрицательным (%)', value;
+    END IF;
+    
+    RAISE NOTICE 'Всё хорошо, значение = %', value;
+    
+    RETURN value * 2;
+END;
+$$;
+```
+
+**Разбор RAISE:**
+
+| Слово | Что означает |
+|-------|--------------|
+| `RAISE` | поднять (вывести сообщение) |
+| `NOTICE` | уровень сообщения (уведомление) |
+| `'Начало функции. Значение = %'` | текст сообщения, % — место для подстановки |
+| `, value` | значение, которое подставляется вместо % |
+
+**Уровни сообщений (от самых важных до самых неважных):**
+- `EXCEPTION` — ошибка (останавливает функцию)
+- `WARNING` — предупреждение
+- `NOTICE` — уведомление (видно по умолчанию)
+- `INFO` — информация
+- `DEBUG` — отладка (не видно без настройки)
+
+---
+
+## Часть 11. Массивы
+
+```sql
+CREATE OR REPLACE FUNCTION sum_array(arr INTEGER[])
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    total INTEGER := 0;
+    i INTEGER;
+BEGIN
+    FOR i IN 1..array_length(arr, 1) LOOP
+        total := total + arr[i];
+    END LOOP;
+    
+    RETURN total;
+END;
+$$;
+```
+
+**Разбор синтаксиса массива:**
+
+| Код | Что означает |
+|-----|--------------|
+| `arr INTEGER[]` | параметр arr — массив целых чисел (квадратные скобки означают массив) |
+| `array_length(arr, 1)` | длина массива arr по первому измерению |
+| `arr[i]` | элемент массива с индексом i (индексы начинаются с 1) |
+
+**Вызов:**
+```sql
+SELECT sum_array(ARRAY[1, 2, 3, 4, 5]);  -- Результат: 15
+SELECT sum_array('{10,20,30}'::INTEGER[]);  -- Результат: 60
+```
+
+### Конструктор массива ARRAY:
+
+| Синтаксис | Что означает |
+|-----------|--------------|
+| `ARRAY[1,2,3]` | создать массив из чисел 1,2,3 |
+| `'{1,2,3}'::INTEGER[]` | привести строку к типу массив (другой способ) |
+
+---
+
+## Часть 12. Динамические команды (EXECUTE)
+
+```sql
+CREATE OR REPLACE FUNCTION execute_dynamic(table_name TEXT, column_name TEXT, value TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result TEXT;
+BEGIN
+    EXECUTE format('SELECT %I FROM %I WHERE id = %L', column_name, table_name, value)
+    INTO result;
+    
+    RETURN result;
+END;
+$$;
+```
+
+**Разбор EXECUTE:**
+
+| Слово | Что означает |
+|-------|--------------|
+| `EXECUTE` | выполнить строку как SQL-команду |
+| `format(...)` | функция форматирования строки |
+| `%I` | вставить имя (таблицы/колонки) с защитой от SQL-инъекций |
+| `%L` | вставить строковое значение с кавычками |
+| `INTO result` | сохранить результат в переменную |
+
+**Почему нельзя просто написать `SELECT * FROM table_name`:** 
+Потому что PostgreSQL не подставит значение переменной как имя таблицы. Нужен EXECUTE.
+
+---
+
+## Часть 13. Триггеры (специальная функция)
+
+```sql
+CREATE OR REPLACE FUNCTION trg_update_timestamp()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.updated_at := NOW();
+    RETURN NEW;
+END;
+$$;
+```
+
+**Специальные слова для триггеров:**
+
+| Слово | Что означает |
+|-------|--------------|
+| `RETURNS TRIGGER` | функция возвращает TRIGGER (специальный тип) |
+| `NEW` | новая строка (для INSERT/UPDATE) |
+| `OLD` | старая строка (для UPDATE/DELETE) |
+| `TG_OP` | операция ('INSERT', 'UPDATE', 'DELETE') |
+| `TG_TABLE_NAME` | имя таблицы |
+
+**Создание триггера:**
+
+```sql
+CREATE TRIGGER trigger_name
+    BEFORE UPDATE ON products
+    FOR EACH ROW
+    EXECUTE FUNCTION trg_update_timestamp();
+```
+
+**Разбор CREATE TRIGGER:**
+
+| Слово | Что означает |
+|-------|--------------|
+| `CREATE TRIGGER` | создать триггер |
+| `trigger_name` | имя триггера |
+| `BEFORE` | перед выполнением операции |
+| `UPDATE` | при обновлении |
+| `ON products` | на таблице products |
+| `FOR EACH ROW` | для каждой строки |
+| `EXECUTE FUNCTION` | выполнить функцию |
+| `trg_update_timestamp()` | имя функции-триггера |
+
+---
+
+## Часть 14. Полный пример с комментариями
+
+```sql
+-- =============================================================================
+-- Функция: create_order
+-- Описание: Создаёт новый заказ для покупателя
+-- Параметры:
+--   p_customer_id - ID покупателя
+--   p_items - массив товаров в формате JSON: [{"id":1,"qty":2}, ...]
+-- Возвращает: ID созданного заказа или NULL при ошибке
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION create_order(
+    p_customer_id INTEGER,          -- ID покупателя (целое число)
+    p_items JSONB                   -- Список товаров (JSON-объект)
+)
+RETURNS INTEGER                     -- Вернём ID заказа (целое число)
+LANGUAGE plpgsql                    -- Язык: PL/pgSQL
+AS $$                               -- Начало тела функции
+DECLARE
+    -- Объявляем переменные
+    v_order_id INTEGER;             -- ID нового заказа
+    v_total DECIMAL := 0;           -- Общая сумма заказа (начинается с 0)
+    v_item RECORD;                  -- Для перебора товаров (запись)
+    v_book_price DECIMAL;           -- Цена книги
+    v_book_stock INTEGER;           -- Остаток книги
+BEGIN
+    -- ========================================================================
+    -- Шаг 1: Создаём запись о заказе
+    -- ========================================================================
+    INSERT INTO orders (customer_id, status, order_date)
+    VALUES (p_customer_id, 'new', NOW())
+    RETURNING id INTO v_order_id;
+    -- ↑ RETURNING id - вернуть автоматически сгенерированный ID
+    -- ↑ INTO v_order_id - сохранить в переменную
+    
+    -- ========================================================================
+    -- Шаг 2: Обрабатываем каждый товар из JSON-массива
+    -- ========================================================================
+    FOR v_item IN 
+        SELECT * FROM jsonb_to_recordset(p_items) AS x(book_id INT, quantity INT)
+        -- ↑ jsonb_to_recordset - превращает JSON-массив в строки таблицы
+        -- ↑ book_id INT - каждая строка имеет поле book_id (целое)
+        -- ↑ quantity INT - и поле quantity (целое)
+    LOOP
+        -- 2.1: Получаем цену и остаток книги
+        SELECT price, stock 
+        INTO v_book_price, v_book_stock
+        FROM books 
+        WHERE id = v_item.book_id;
+        
+        -- 2.2: Проверяем, достаточно ли товара на складе
+        IF v_book_stock < v_item.quantity THEN
+            RAISE EXCEPTION 'Недостаточно товара! Книга ID: %, остаток: %, заказано: %',
+                v_item.book_id, v_book_stock, v_item.quantity;
+            -- ↑ RAISE EXCEPTION - выбрасываем ошибку (заказ не создастся)
+        END IF;
+        
+        -- 2.3: Добавляем позицию в таблицу order_items
+        INSERT INTO order_items (order_id, book_id, quantity, price_at_moment)
+        VALUES (v_order_id, v_item.book_id, v_item.quantity, v_book_price);
+        
+        -- 2.4: Уменьшаем остаток на складе
+        UPDATE books 
+        SET stock = stock - v_item.quantity
+        WHERE id = v_item.book_id;
+        
+        -- 2.5: Добавляем к общей сумме
+        v_total := v_total + (v_book_price * v_item.quantity);
+        
+    END LOOP;  -- Конец цикла по товарам
+    
+    -- ========================================================================
+    -- Шаг 3: Обновляем сумму заказа
+    -- ========================================================================
+    UPDATE orders 
+    SET total_amount = v_total 
+    WHERE id = v_order_id;
+    
+    -- ========================================================================
+    -- Шаг 4: Возвращаем ID созданного заказа
+    -- ========================================================================
+    RETURN v_order_id;
+    
+-- ============================================================================
+-- Блок обработки ошибок (если что-то пошло не так)
+-- ============================================================================
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Логируем ошибку в таблицу error_log
+        INSERT INTO error_log (function_name, error_message, error_data, error_time)
+        VALUES (
+            'create_order',                 -- имя функции
+            SQLERRM,                        -- текст ошибки
+            jsonb_build_object(             -- данные, которые привели к ошибке
+                'customer_id', p_customer_id,
+                'items', p_items
+            ),
+            NOW()                           -- время ошибки
+        );
+        
+        -- Выводим уведомление
+        RAISE NOTICE 'Ошибка при создании заказа: %', SQLERRM;
+        
+        -- Возвращаем NULL (сигнал об ошибке)
+        RETURN NULL;
+END;                                    -- Конец функции
+$$;                                     -- Конец тела функции
+```
+
+**Как вызвать эту функцию:**
+
+```sql
+SELECT create_order(
+    1,  -- покупатель с ID=1
+    '[{"book_id": 1, "quantity": 2}, {"book_id": 3, "quantity": 1}]'::JSONB
+);
+```
+
+---
+
+## Шпаргалка: таблица всех изученных слов
+
+| Слово/символ | Русский смысл | Где используется |
+|--------------|---------------|------------------|
+| `CREATE` | создать | создание функции |
+| `OR` | или | CREATE OR REPLACE |
+| `REPLACE` | заменить | CREATE OR REPLACE |
+| `FUNCTION` | функция | CREATE FUNCTION |
+| `RETURNS` | возвращает | тип возврата |
+| `LANGUAGE` | язык | указание PL/pgSQL |
+| `AS` | как | начало тела |
+| `$$` | (ограничитель) | вместо кавычек |
+| `DECLARE` | объявить | секция переменных |
+| `BEGIN` | начало | начало блока кода |
+| `END` | конец | конец блока |
+| `:=` | присвоить | оператор присваивания |
+| `=` | равно | сравнение |
+| `<>` или `!=` | не равно | сравнение |
+| `<` | меньше | сравнение |
+| `>` | больше | сравнение |
+| `IF` | если | условие |
+| `THEN` | тогда | условие |
+| `ELSE` | иначе | условие |
+| `ELSIF` | иначе если | условие |
+| `END IF` | конец условия | условие |
+| `CASE` | выбор | множественный выбор |
+| `WHEN` | когда | CASE |
+| `END CASE` | конец выбора | CASE |
+| `LOOP` | цикл | начало цикла |
+| `END LOOP` | конец цикла | цикл |
+| `FOR` | для | цикл FOR |
+| `WHILE` | пока | цикл WHILE |
+| `EXIT` | выйти | выход из цикла |
+| `CONTINUE` | продолжить | переход к следующей итерации |
+| `RETURN` | вернуть | выход из функции |
+| `RETURN NEXT` | вернуть строку | SRF функция |
+| `RETURN QUERY` | вернуть запрос | SRF функция |
+| `SELECT INTO` | выбрать в переменную | чтение данных |
+| `PERFORM` | выполнить | выполнить без результата |
+| `FOUND` | найдено | проверка результата SELECT |
+| `NOT FOUND` | не найдено | проверка |
+| `EXCEPTION` | исключение | обработка ошибок |
+| `WHEN OTHERS THEN` | при любой ошибке | обработка ошибок |
+| `RAISE` | поднять | вывод сообщения |
+| `NOTICE` | уведомление | уровень сообщения |
+| `EXCEPTION` | исключение | уровень сообщения (ошибка) |
+| `WARNING` | предупреждение | уровень сообщения |
+| `DEBUG` | отладка | уровень сообщения |
+| `ASSERT` | проверить | проверка условия |
+| `EXECUTE` | выполнить | динамический SQL |
+| `format()` | форматировать | форматирование строк |
+| `%I` | идентификатор | placeholder для format() |
+| `%L` | литерал | placeholder для format() |
+| `%s` | строка | placeholder для format() |
+| `NEW` | новый | в триггере (новая строка) |
+| `OLD` | старый | в триггере (старая строка) |
+| `TG_OP` | операция | в триггере (INSERT/UPDATE/DELETE) |
+| `RETURNS TRIGGER` | возвращает триггер | тип триггерной функции |
+| `ARRAY[]` | массив | создание массива |
+| `array_length()` | длина массива | функция |
+| `JSONB` | JSON-объект | тип данных |
+| `->` | извлечь | оператор JSON |
+| `->>` | извлечь как текст | оператор JSON |
+
+---
+
