@@ -420,232 +420,926 @@ INSERT INTO sales (book_id, customer_id, quantity, price_at_sale) VALUES
 ✅ **После этого у вас есть работающие данные.**
 
 ---
+# Практическое задание: PL/pgSQL в книжном магазине
 
-## Часть 3. Интерфейс — это SQL-запросы (ваши задания)
+## Цель работы
 
-Вы — «бэкенд». Клиент (условный веб-интерфейс) задаёт вопросы, вы отвечаете SQL-запросами.
-
-Напишите запросы для каждого пункта.
-
----
-
-### 3.1. Показать все книги с их авторами
-
-**Результат:**  
-`title | first_name | last_name`
-
-<details>
-<summary>Подсказка</summary>
-
-```sql
-SELECT b.title, a.first_name, a.last_name
-FROM books b
-JOIN book_authors ba ON b.id = ba.book_id
-JOIN authors a ON a.id = ba.author_id;
-```
-</details>
+Отработать все основные конструкции PL/pgSQL на реальных данных книжного магазина: переменные, условия, циклы, курсоры, динамические команды, массивы, обработку ошибок, триггеры и отладку.
 
 ---
 
-### 3.2. Какая книга продалась лучше всего (по количеству экземпляров)?
+## Подготовка (схема и данные)
 
-<details>
-<summary>Подсказка</summary>
-
-```sql
-SELECT b.title, SUM(s.quantity) AS total_sold
-FROM sales s
-JOIN books b ON b.id = s.book_id
-GROUP BY b.id
-ORDER BY total_sold DESC
-LIMIT 1;
-```
-</details>
-
----
-
-### 3.3. Выручка по каждой книге (price_at_sale * quantity)
-
-<details>
-<summary>Подсказка</summary>
-
-```sql
-SELECT b.title, SUM(s.price_at_sale * s.quantity) AS revenue
-FROM sales s
-JOIN books b ON b.id = s.book_id
-GROUP BY b.id
-ORDER BY revenue DESC;
-```
-</details>
-
----
-
-### 3.4. Какой покупатель потратил больше всего денег?
-
-<details>
-<summary>Подсказка</summary>
-
-```sql
-SELECT c.name, SUM(s.price_at_sale * s.quantity) AS total_spent
-FROM sales s
-JOIN customers c ON c.id = s.customer_id
-GROUP BY c.id
-ORDER BY total_spent DESC
-LIMIT 1;
-```
-</details>
-
----
-
-### 3.5. Вывести список покупателей, которые купили книгу «1984»
-
-<details>
-<summary>Подсказка</summary>
-
-```sql
-SELECT DISTINCT c.name
-FROM sales s
-JOIN books b ON b.id = s.book_id
-JOIN customers c ON c.id = s.customer_id
-WHERE b.title = '1984';
-```
-</details>
-
----
-
-### 3.6. Показать остатки на складе (только книги с остатком > 0)
-
-<details>
-<summary>Подсказка</summary>
-
-```sql
-SELECT title, stock FROM books WHERE stock > 0;
-```
-</details>
-
----
-
-### 3.7. Снизить цену всех книг на 10% (UPDATE)
-
-> Это **действие**, а не запрос на вывод. Выполните его в БД.
-
-<details>
-<summary>Подсказка</summary>
-
-```sql
-UPDATE books SET price = price * 0.9;
-```
-</details>
-
----
-
-### 3.8. Добавить второго автора для книги «1984» (например, «Имя Фамилия»)
-
-> Вставьте в `book_authors`
-
-<details>
-<summary>Подсказка</summary>
-
-```sql
-INSERT INTO authors (first_name, last_name) VALUES ('Имя', 'Фамилия');
-INSERT INTO book_authors (book_id, author_id)
-VALUES (
-    (SELECT id FROM books WHERE title = '1984'),
-    (SELECT id FROM authors WHERE first_name = 'Имя' AND last_name = 'Фамилия')
-);
-```
-</details>
-
----
-
-### 3.9. Показать книги, у которых нет ни одной продажи
-
-<details>
-<summary>Подсказка</summary>
-
-```sql
-SELECT b.title
-FROM books b
-LEFT JOIN sales s ON b.id = s.book_id
-WHERE s.id IS NULL;
-```
-</details>
-
----
-
-### 3.10. Самый популярный автор по количеству проданных книг
-
-<details>
-<summary>Подсказка</summary>
-
-```sql
-SELECT a.first_name, a.last_name, SUM(s.quantity) AS sold
-FROM authors a
-JOIN book_authors ba ON a.id = ba.author_id
-JOIN books b ON b.id = ba.book_id
-JOIN sales s ON s.book_id = b.id
-GROUP BY a.id
-ORDER BY sold DESC
-LIMIT 1;
-```
-</details>
-
----
-
-## Часть 4. Контрольные вопросы (чтобы убедиться, что вы поняли)
-
-| № | Вопрос | Ваш ответ (устно или письменно) |
-|---|--------|--------------------------------|
-| 1 | Зачем нужна таблица `book_authors`? | |
-| 2 | Что произойдёт с `sales`, если удалить книгу? | |
-| 3 | В чём разница между `stock` и `quantity` в продажах? | |
-| 4 | Почему в `sales` хранится `price_at_sale`, а не берётся из `books.price`? | |
-
-<details>
-<summary>Ответы</summary>
-
-1. Чтобы реализовать связь «многие ко многим» (у книги несколько авторов, у автора — несколько книг).  
-2. Ничего, если `ON DELETE RESTRICT` — ошибка. В нашей схеме `REFERENCES books(id)` без `ON DELETE CASCADE` — удаление книги будет запрещено, если есть продажи.  
-3. `stock` — сколько сейчас есть на складе, `quantity` — сколько купили.  
-4. Цена книги может меняться, но цена продажи должна оставаться исторической.
-</details>
-
----
-
-## Ожидаемый результат выполнения
-
-После выполнения упражнения вы:
-
-- ✅ Спроектируете схему с отношениями 1:N и M:N
-- ✅ Напишете `SELECT` с `JOIN`, `GROUP BY`, `SUM`, `COUNT`
-- ✅ Выполните `UPDATE` и `INSERT`
-- ✅ Используете подзапросы и `LEFT JOIN` для поиска отсутствующих данных
-
----
-
-## Если вы хотите проверить себя полностью
-
-Выполните этот скрипт как «экзамен» (без подсказок):
-
-```sql
--- 1. Создать таблицы (уже сделано)
--- 2. Вставить минимум 3 книги, 3 авторов, 2 покупателей, 5 продаж
-
--- 3. Написать запрос:
---    "Название книги, автор, суммарная выручка по этой книге"
-
--- 4. Написать запрос:
---    "Покупатели, которые купили больше 2 книг (по сумме quantity)"
-```
-
----
-
-## Как сдать упражнение (если нужно отчитаться)
+Перед выполнением заданий выполните скрипт из предыдущего упражнения (схема + тестовые данные).
 
 ```bash
-pg_dump bookstore --inserts > bookstore_solution.sql
+# Подключитесь к PostgreSQL
+sudo -u postgres psql
+
+# Создайте базу (если ещё нет)
+CREATE DATABASE bookstore;
+\c bookstore
+
+# Выполните скрипт создания таблиц и заполнения данными
+-- (скопируйте SQL из Части 1 и Части 2 выше)
 ```
 
-Или просто сохраните все ваши `SELECT`-запросы в текстовый файл.
+**Проверьте, что всё готово:**
+```sql
+\dt
+SELECT * FROM books;
+SELECT * FROM authors;
+SELECT * FROM customers;
+SELECT * FROM sales;
+```
 
-Готово. Вы только что сделали полноценное приложение «Книжный магазин» на уровне схемы и SQL-интерфейса.
+---
+
+## Часть 1. Обзор и конструкции языка (10 баллов)
+
+### Задание 1.1. Функция со скидкой
+
+Создайте функцию `apply_discount(price DECIMAL, discount_percent DECIMAL)`, которая возвращает цену со скидкой.
+
+**Требования:**
+- Использовать `DECLARE` для объявления переменной `discount_amount`
+- Использовать `IF/ELSE`: если скидка больше 50%, выдать предупреждение через `RAISE NOTICE`, но скидку всё равно применить
+- Вернуть новую цену (не может быть меньше 0)
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION apply_discount(price DECIMAL, discount_percent DECIMAL)
+RETURNS DECIMAL AS $$
+DECLARE
+    discount_amount DECIMAL;
+    new_price DECIMAL;
+BEGIN
+    IF discount_percent > 50 THEN
+        RAISE NOTICE 'Внимание: скидка %%% превышает 50%%!', discount_percent;
+    END IF;
+    
+    discount_amount := price * discount_percent / 100;
+    new_price := price - discount_amount;
+    
+    IF new_price < 0 THEN
+        new_price := 0;
+    END IF;
+    
+    RETURN new_price;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+**Проверка:**
+```sql
+SELECT apply_discount(1000, 20);  -- 800
+SELECT apply_discount(100, 60);   -- 40 с предупреждением
+```
+
+---
+
+### Задание 1.2. CASE для категории цены
+
+Создайте функцию `price_category(price DECIMAL)`, которая возвращает:
+- `'Бюджетный'` — если цена < 300
+- `'Средний'` — если цена от 300 до 800
+- `'Премиум'` — если цена > 800
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION price_category(price DECIMAL)
+RETURNS TEXT AS $$
+BEGIN
+    RETURN CASE
+        WHEN price < 300 THEN 'Бюджетный'
+        WHEN price <= 800 THEN 'Средний'
+        ELSE 'Премиум'
+    END;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+---
+
+## Часть 2. Выполнение запросов (15 баллов)
+
+### Задание 2.1. SELECT INTO с проверкой FOUND
+
+Создайте функцию `get_book_by_id(p_id INTEGER)`, которая:
+- Возвращает `title` и `price` книги
+- Если книга не найдена, возвращает сообщение `'Книга не найдена'`
+- Используйте `SELECT INTO` и проверку `FOUND`
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION get_book_by_id(p_id INTEGER)
+RETURNS TEXT AS $$
+DECLARE
+    v_title books.title%TYPE;
+    v_price books.price%TYPE;
+BEGIN
+    SELECT title, price INTO v_title, v_price
+    FROM books
+    WHERE id = p_id;
+    
+    IF NOT FOUND THEN
+        RETURN 'Книга не найдена';
+    END IF;
+    
+    RETURN format('Книга: %s, цена: %s руб.', v_title, v_price);
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+---
+
+### Задание 2.2. RETURN QUERY — список дорогих книг
+
+Создайте функцию `get_expensive_books(p_min_price DECIMAL)`, которая возвращает таблицу с колонками: `title`, `price`, `category`.
+
+**Требования:**
+- Использовать `RETURNS TABLE(...)`
+- Использовать `RETURN QUERY`
+- Колонка `category` вычисляется через функцию `price_category()` из задания 1.2
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION get_expensive_books(p_min_price DECIMAL)
+RETURNS TABLE(
+    title TEXT,
+    price DECIMAL,
+    category TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT b.title::TEXT, b.price, price_category(b.price)
+    FROM books b
+    WHERE b.price > p_min_price
+    ORDER BY b.price DESC;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+**Проверка:**
+```sql
+SELECT * FROM get_expensive_books(300);
+```
+
+---
+
+### Задание 2.3. PERFORM для запросов без результата
+
+Создайте функцию `cleanup_zero_stock()`, которая:
+- Удаляет книги с нулевым остатком (stock = 0)
+- Использует `PERFORM` для проверки, есть ли такие книги
+- Выводит `RAISE NOTICE` с количеством удалённых книг
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION cleanup_zero_stock()
+RETURNS INTEGER AS $$
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    -- Проверяем, есть ли книги с нулевым остатком
+    PERFORM 1 FROM books WHERE stock = 0 LIMIT 1;
+    
+    IF NOT FOUND THEN
+        RAISE NOTICE 'Нет книг с нулевым остатком';
+        RETURN 0;
+    END IF;
+    
+    WITH deleted AS (
+        DELETE FROM books WHERE stock = 0 RETURNING *
+    )
+    SELECT COUNT(*) INTO deleted_count FROM deleted;
+    
+    RAISE NOTICE 'Удалено книг: %', deleted_count;
+    RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+---
+
+## Часть 3. Курсоры (15 баллов)
+
+### Задание 3.1. Простой курсор с LOOP
+
+Создайте функцию `increase_price_for_author(p_author_id INTEGER, p_percent DECIMAL)`, которая:
+- Использует курсор для перебора книг указанного автора
+- Увеличивает цену каждой книги на `p_percent` процентов
+- Выводит `RAISE NOTICE` для каждой обновлённой книги
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION increase_price_for_author(
+    p_author_id INTEGER,
+    p_percent DECIMAL
+)
+RETURNS INTEGER AS $$
+DECLARE
+    book_cursor CURSOR FOR
+        SELECT b.id, b.title, b.price
+        FROM books b
+        JOIN book_authors ba ON b.id = ba.book_id
+        WHERE ba.author_id = p_author_id
+        FOR UPDATE;
+    
+    v_book RECORD;
+    v_new_price DECIMAL;
+    v_counter INTEGER := 0;
+BEGIN
+    OPEN book_cursor;
+    
+    LOOP
+        FETCH book_cursor INTO v_book;
+        EXIT WHEN NOT FOUND;
+        
+        v_new_price := v_book.price * (1 + p_percent / 100);
+        
+        UPDATE books SET price = v_new_price
+        WHERE CURRENT OF book_cursor;
+        
+        v_counter := v_counter + 1;
+        RAISE NOTICE 'Книга "%s": цена была %.2f, стала %.2f',
+            v_book.title, v_book.price, v_new_price;
+    END LOOP;
+    
+    CLOSE book_cursor;
+    RETURN v_counter;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+**Проверка:**
+```sql
+SELECT * FROM books WHERE id IN (SELECT book_id FROM book_authors WHERE author_id = 1);
+SELECT increase_price_for_author(1, 10);  -- увеличить книги Оруэлла на 10%
+SELECT * FROM books WHERE id IN (SELECT book_id FROM book_authors WHERE author_id = 1);
+```
+
+---
+
+### Задание 3.2. Курсор с параметрами
+
+Создайте функцию `process_sales_batch(p_batch_size INTEGER)`, которая:
+- Использует курсор с параметром для перебора продаж
+- Обрабатывает продажи порциями (batch)
+- Для каждой продажи выводит информацию
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION process_sales_batch(p_batch_size INTEGER)
+RETURNS INTEGER AS $$
+DECLARE
+    sales_cursor CURSOR (batch INTEGER) FOR
+        SELECT id, book_id, customer_id, quantity
+        FROM sales
+        LIMIT batch;
+    
+    v_sale RECORD;
+    v_total_processed INTEGER := 0;
+BEGIN
+    OPEN sales_cursor(p_batch_size);
+    
+    LOOP
+        FETCH sales_cursor INTO v_sale;
+        EXIT WHEN NOT FOUND;
+        
+        RAISE NOTICE 'Продажа ID: %, книга: %, покупатель: %, кол-во: %',
+            v_sale.id, v_sale.book_id, v_sale.customer_id, v_sale.quantity;
+        
+        v_total_processed := v_total_processed + 1;
+    END LOOP;
+    
+    CLOSE sales_cursor;
+    RETURN v_total_processed;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+---
+
+## Часть 4. Динамические команды (EXECUTE) (10 баллов)
+
+### Задание 4.1. Динамический SELECT
+
+Создайте функцию `dynamic_select(p_table_name TEXT, p_column_name TEXT, p_id INTEGER)`, которая:
+- Динамически выполняет запрос `SELECT column_name FROM table_name WHERE id = p_id`
+- Использует `FORMAT` с `%I` для безопасной подстановки имён
+- Использует `%L` для безопасной подстановки значения
+- Возвращает значение в виде TEXT
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION dynamic_select(
+    p_table_name TEXT,
+    p_column_name TEXT,
+    p_id INTEGER
+)
+RETURNS TEXT AS $$
+DECLARE
+    v_result TEXT;
+    v_query TEXT;
+BEGIN
+    v_query := FORMAT('SELECT %I FROM %I WHERE id = %L', 
+                      p_column_name, p_table_name, p_id);
+    
+    RAISE NOTICE 'Выполняется запрос: %', v_query;
+    
+    EXECUTE v_query INTO v_result;
+    
+    RETURN COALESCE(v_result, 'Не найдено');
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+**Проверка:**
+```sql
+SELECT dynamic_select('books', 'title', 1);   -- '1984'
+SELECT dynamic_select('authors', 'first_name', 2);  -- 'Лев'
+```
+
+---
+
+### Задание 4.2. Динамическое обновление
+
+Создайте функцию `dynamic_update(p_table_name TEXT, p_column_name TEXT, p_value TEXT, p_id INTEGER)`, которая:
+- Динамически обновляет указанную колонку
+- Возвращает количество обновлённых строк
+- Использует `EXECUTE` с `USING` для безопасности
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION dynamic_update(
+    p_table_name TEXT,
+    p_column_name TEXT,
+    p_value TEXT,
+    p_id INTEGER
+)
+RETURNS INTEGER AS $$
+DECLARE
+    v_query TEXT;
+    v_result INTEGER;
+BEGIN
+    v_query := FORMAT('UPDATE %I SET %I = $1 WHERE id = $2', 
+                      p_table_name, p_column_name);
+    
+    RAISE NOTICE 'Выполняется запрос: %', v_query;
+    
+    EXECUTE v_query USING p_value, p_id;
+    GET DIAGNOSTICS v_result = ROW_COUNT;
+    
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+---
+
+## Часть 5. Массивы (10 баллов)
+
+### Задание 5.1. Функция с массивом ID
+
+Создайте функцию `get_books_by_ids(p_book_ids INTEGER[])`, которая:
+- Принимает массив ID книг
+- Возвращает таблицу с названиями и ценами
+- Использует `= ANY()` для поиска
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION get_books_by_ids(p_book_ids INTEGER[])
+RETURNS TABLE(title TEXT, price DECIMAL) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT b.title, b.price
+    FROM books b
+    WHERE b.id = ANY(p_book_ids)
+    ORDER BY b.id;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+**Проверка:**
+```sql
+SELECT * FROM get_books_by_ids(ARRAY[1, 3]);
+```
+
+---
+
+### Задание 5.2. Работа с массивом в цикле
+
+Создайте функцию `sum_prices_by_ids(p_book_ids INTEGER[])`, которая:
+- Принимает массив ID книг
+- В цикле проходит по массиву, находит цену каждой книги и суммирует
+- Возвращает общую сумму
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION sum_prices_by_ids(p_book_ids INTEGER[])
+RETURNS DECIMAL AS $$
+DECLARE
+    v_total DECIMAL := 0;
+    v_price DECIMAL;
+    v_idx INTEGER;
+BEGIN
+    FOR v_idx IN 1..array_length(p_book_ids, 1) LOOP
+        SELECT price INTO v_price
+        FROM books
+        WHERE id = p_book_ids[v_idx];
+        
+        IF FOUND THEN
+            v_total := v_total + v_price;
+            RAISE NOTICE 'Книга ID %: цена % (сумма: %)', 
+                p_book_ids[v_idx], v_price, v_total;
+        ELSE
+            RAISE NOTICE 'Книга ID % не найдена', p_book_ids[v_idx];
+        END IF;
+    END LOOP;
+    
+    RETURN v_total;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+---
+
+## Часть 6. Обработка ошибок (10 баллов)
+
+### Задание 6.1. Безопасное удаление с обработкой ошибок
+
+Создайте функцию `safe_delete_book(p_book_id INTEGER)`, которая:
+- Удаляет книгу по ID
+- Если книга не найдена, возвращает сообщение
+- Если возникает ошибка внешнего ключа (книга есть в продажах), перехватывает её и возвращает понятное сообщение
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION safe_delete_book(p_book_id INTEGER)
+RETURNS TEXT AS $$
+BEGIN
+    DELETE FROM books WHERE id = p_book_id;
+    
+    IF NOT FOUND THEN
+        RETURN format('Книга с ID % не найдена', p_book_id);
+    END IF;
+    
+    RETURN format('Книга с ID % успешно удалена', p_book_id);
+    
+EXCEPTION
+    WHEN foreign_key_violation THEN
+        RETURN format('Нельзя удалить книгу с ID %: есть связанные продажи', p_book_id);
+    WHEN OTHERS THEN
+        RETURN format('Ошибка при удалении: %', SQLERRM);
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+**Проверка:**
+```sql
+SELECT safe_delete_book(1);  -- ошибка (есть продажи)
+SELECT safe_delete_book(99); -- не найдена
+```
+
+---
+
+### Задание 6.2. ASSERT для проверки
+
+Создайте функцию `create_order(p_customer_id INTEGER, p_book_id INTEGER, p_quantity INTEGER)`, которая:
+- Проверяет, что количество > 0 (через `ASSERT`)
+- Проверяет, что товар есть в наличии
+- Если товара недостаточно, выбрасывает исключение
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION create_order(
+    p_customer_id INTEGER,
+    p_book_id INTEGER,
+    p_quantity INTEGER
+)
+RETURNS INTEGER AS $$
+DECLARE
+    v_price DECIMAL;
+    v_stock INTEGER;
+BEGIN
+    ASSERT p_quantity > 0, 'Количество должно быть положительным';
+    
+    SELECT price, stock INTO v_price, v_stock
+    FROM books WHERE id = p_book_id;
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Книга с ID % не найдена', p_book_id;
+    END IF;
+    
+    IF v_stock < p_quantity THEN
+        RAISE EXCEPTION 'Недостаточно товара. В наличии: %, заказано: %',
+            v_stock, p_quantity;
+    END IF;
+    
+    UPDATE books SET stock = stock - p_quantity WHERE id = p_book_id;
+    
+    INSERT INTO sales (book_id, customer_id, quantity, price_at_sale)
+    VALUES (p_book_id, p_customer_id, p_quantity, v_price)
+    RETURNING id INTO p_book_id;
+    
+    RETURN p_book_id;
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+---
+
+## Часть 7. Триггеры (15 баллов)
+
+### Задание 7.1. BEFORE INSERT — автоматическое обновление даты
+
+Добавьте в таблицу `books` колонку `updated_at`:
+```sql
+ALTER TABLE books ADD COLUMN updated_at TIMESTAMP DEFAULT NOW();
+```
+
+Создайте триггер, который автоматически обновляет `updated_at` при каждом изменении книги.
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+-- Функция триггера
+CREATE OR REPLACE FUNCTION update_books_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at := NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Триггер
+CREATE TRIGGER books_update_timestamp
+    BEFORE UPDATE ON books
+    FOR EACH ROW
+    EXECUTE FUNCTION update_books_timestamp();
+```
+</details>
+
+**Проверка:**
+```sql
+UPDATE books SET price = 400 WHERE id = 1;
+SELECT id, title, price, updated_at FROM books;
+```
+
+---
+
+### Задание 7.2. AFTER INSERT — аудит продаж
+
+Создайте таблицу `sales_audit`:
+```sql
+CREATE TABLE sales_audit (
+    id SERIAL PRIMARY KEY,
+    sale_id INTEGER,
+    book_title TEXT,
+    customer_name TEXT,
+    quantity INTEGER,
+    total DECIMAL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+Создайте триггер, который при каждой новой продаже записывает информацию в `sales_audit`.
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION audit_new_sale()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_book_title TEXT;
+    v_customer_name TEXT;
+BEGIN
+    SELECT title INTO v_book_title FROM books WHERE id = NEW.book_id;
+    SELECT name INTO v_customer_name FROM customers WHERE id = NEW.customer_id;
+    
+    INSERT INTO sales_audit (sale_id, book_title, customer_name, quantity, total)
+    VALUES (NEW.id, v_book_title, v_customer_name, NEW.quantity, 
+            NEW.quantity * NEW.price_at_sale);
+    
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER sales_audit_trigger
+    AFTER INSERT ON sales
+    FOR EACH ROW
+    EXECUTE FUNCTION audit_new_sale();
+```
+</details>
+
+**Проверка:**
+```sql
+INSERT INTO sales (book_id, customer_id, quantity, price_at_sale) 
+VALUES (1, 1, 2, 350.00);
+SELECT * FROM sales_audit;
+```
+
+---
+
+### Задание 7.3. BEFORE UPDATE — валидация цены
+
+Создайте триггер, который:
+- Не позволяет установить цену ниже 100 рублей
+- Не позволяет повысить цену более чем на 50% за одно обновление
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION validate_book_price()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.price < 100 THEN
+        RAISE EXCEPTION 'Цена книги не может быть ниже 100 руб. (попытка: %)', NEW.price;
+    END IF;
+    
+    IF NEW.price > OLD.price * 1.5 THEN
+        RAISE EXCEPTION 'Цену нельзя повышать более чем на 50%% за раз (было: %, стало: %)',
+            OLD.price, NEW.price;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER books_validate_price
+    BEFORE UPDATE ON books
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_book_price();
+```
+</details>
+
+**Проверка:**
+```sql
+UPDATE books SET price = 50 WHERE id = 1;   -- ошибка!
+UPDATE books SET price = 1000 WHERE id = 1; -- ошибка! (более 50% от 350)
+```
+
+---
+
+## Часть 8. Отладка (15 баллов)
+
+### Задание 8.1. Функция с отладочным выводом
+
+Создайте функцию `debug_sales_summary()`, которая:
+- Выводит `RAISE NOTICE` с информацией о:
+  - Общем количестве продаж
+  - Общей выручке
+  - Самой популярной книге
+- Использует разные уровни (`DEBUG`, `LOG`, `INFO`, `NOTICE`)
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION debug_sales_summary()
+RETURNS VOID AS $$
+DECLARE
+    v_total_sales INTEGER;
+    v_total_revenue DECIMAL;
+    v_best_book TEXT;
+    v_best_count INTEGER;
+BEGIN
+    RAISE DEBUG 'Начало выполнения debug_sales_summary()';
+    
+    SELECT COUNT(*), COALESCE(SUM(quantity * price_at_sale), 0)
+    INTO v_total_sales, v_total_revenue
+    FROM sales;
+    
+    RAISE INFO 'Всего продаж: %, общая выручка: % руб.', 
+        v_total_sales, v_total_revenue;
+    
+    SELECT b.title, SUM(s.quantity)
+    INTO v_best_book, v_best_count
+    FROM sales s
+    JOIN books b ON b.id = s.book_id
+    GROUP BY b.id
+    ORDER BY SUM(s.quantity) DESC
+    LIMIT 1;
+    
+    RAISE NOTICE 'Самая популярная книга: "%" (продано % экз.)', 
+        v_best_book, v_best_count;
+    
+    RAISE LOG 'Завершение выполнения debug_sales_summary()';
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+**Проверка:**
+```sql
+-- Включить вывод DEBUG
+SET client_min_messages = 'DEBUG';
+SELECT debug_sales_summary();
+```
+
+---
+
+### Задание 8.2. Функция с ASSERT для отладки
+
+Создайте функцию `debug_check_integrity()`, которая:
+- Проверяет, что у каждой книги есть хотя бы один автор
+- Проверяет, что все продажи ссылаются на существующие книги
+- Использует `ASSERT` для проверок
+- При ошибке выводит детальную информацию
+
+```sql
+-- Ваш код здесь
+```
+
+<details>
+<summary>Решение</summary>
+
+```sql
+CREATE OR REPLACE FUNCTION debug_check_integrity()
+RETURNS TEXT AS $$
+DECLARE
+    v_books_without_authors INTEGER;
+    v_orphan_sales INTEGER;
+BEGIN
+    SELECT COUNT(*)
+    INTO v_books_without_authors
+    FROM books b
+    LEFT JOIN book_authors ba ON b.id = ba.book_id
+    WHERE ba.book_id IS NULL;
+    
+    ASSERT v_books_without_authors = 0, 
+        format('Найдено книг без авторов: %s', v_books_without_authors);
+    
+    SELECT COUNT(*)
+    INTO v_orphan_sales
+    FROM sales s
+    LEFT JOIN books b ON b.id = s.book_id
+    WHERE b.id IS NULL;
+    
+    ASSERT v_orphan_sales = 0,
+        format('Найдено продаж с несуществующими книгами: %s', v_orphan_sales);
+    
+    RETURN 'Целостность данных в порядке';
+EXCEPTION
+    WHEN assert_failure THEN
+        RETURN format('Ошибка целостности: %', SQLERRM);
+END;
+$$ LANGUAGE plpgsql;
+```
+</details>
+
+---
+
+## Проверка выполнения
+
+### Создайте отчёт о выполненной работе
+
+```sql
+-- Список всех созданных функций
+\df
+
+-- Список триггеров
+SELECT tgname, relname FROM pg_trigger WHERE tgname NOT LIKE 'pg%';
+
+-- Проверка всех функций (должны выполняться без ошибок)
+SELECT apply_discount(1000, 20);
+SELECT price_category(500);
+SELECT get_book_by_id(1);
+SELECT * FROM get_expensive_books(300);
+SELECT cleanup_zero_stock();
+SELECT increase_price_for_author(1, 5);
+SELECT process_sales_batch(10);
+SELECT dynamic_select('books', 'title', 1);
+SELECT dynamic_update('books', 'price', '999', 1);
+SELECT * FROM get_books_by_ids(ARRAY[1, 3]);
+SELECT sum_prices_by_ids(ARRAY[1, 2, 3]);
+SELECT safe_delete_book(99);
+SELECT create_order(1, 3, 1);
+SELECT debug_sales_summary();
+SELECT debug_check_integrity();
+```
+
+
+
+## Сдача задания
+
+1. Сохраните все ваши решения в файл `plpgsql_bookstore.sql`
+2. Выполните все проверочные запросы
+3. Убедитесь, что нет ошибок
+4. Отправьте файл на проверку
+
+```bash
+# Дамп всех функций
+pg_dump bookstore --schema-only --file=plpgsql_bookstore.sql
+```
